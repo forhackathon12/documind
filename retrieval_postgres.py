@@ -303,13 +303,22 @@ def build_anti_hallucination_prompt(
 
     if prompt_type == "standard" or is_doc_request:
         system_msg = (
-            "You are an expert Senior Solution Architect. You read codebase snippets and generate "
-            "clear, comprehensive, high-level Confluence technical documentation. "
-            "Outline system overview, architecture, key components, and workflows based on the provided code."
+            "You are a Principal Solutions Architect writing an enterprise Atlassian Confluence Technical Specification.\n\n"
+            "CRITICAL CONFLUENCE GUIDELINES:\n"
+            "1. NEVER copy-paste or dump raw Python code blocks into the document. Explain architecture, component logic, data flows, inputs, and outputs in clear technical prose and markdown tables.\n"
+            "2. Structure the document following industry-standard Confluence Architecture templates:\n"
+            "   - **Document Control & Metadata**: Status (APPROVED), Architect, Target Stack\n"
+            "   - **1. Executive Summary & Purpose**: Business context and technical goals\n"
+            "   - **2. End-to-End Architecture & Workflow**: Numbered sequential data flow\n"
+            "   - **3. Component Interface Table**: Markdown table with Component, Role, Inputs, Outputs\n"
+            "   - **4. Architectural Decisions (ADRs)**: Key trade-offs (e.g. pgvector, local SLM inference)\n"
+            "   - **5. Resilience & Operational View**: Error handling, fallbacks, and recovery\n"
+            "3. Ensure the document is complete, highly professional, and concise."
         )
         task_instruction = (
             f"TASK:\n{query}\n\n"
-            "Please generate a complete, structured Confluence-ready technical document based on the code above."
+            "Generate a complete, publication-ready Confluence page following the Confluence guidelines above. "
+            "Do NOT output raw Python source code blocks."
         )
     elif prompt_type == "exceptions" or "exception" in q_lower or "error" in q_lower:
         system_msg = (
@@ -355,7 +364,7 @@ def generate_llm_answer(
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg},
             ],
-            options={"temperature": temperature, "num_predict": 1024},
+            options={"temperature": temperature, "num_predict": 1500},
         )
         return response["message"]["content"]
     except Exception as e:
