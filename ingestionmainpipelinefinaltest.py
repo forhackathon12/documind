@@ -6,11 +6,20 @@ import subprocess
 import numpy as np
 import ollama
 import psycopg2
+import psycopg2.extensions
 
 from psycopg2.extras import execute_values
 from pgvector.psycopg2 import register_vector
 from tree_sitter import Language, Parser
 import tree_sitter_python as tspython
+
+
+def _adapt_numpy_array(arr):
+    return psycopg2.extensions.AsIs(f"ARRAY{arr.tolist()}::real[]")
+
+
+psycopg2.extensions.register_adapter(np.ndarray, _adapt_numpy_array)
+
 
 
 # --------------------------------------------------
@@ -22,22 +31,23 @@ PY_LANGUAGE = Language(tspython.language())
 # --------------------------------------------------
 # Base target upload folder
 # --------------------------------------------------
-BASE_UPLOAD_FOLDER = "/home/azureuser/proj-documind/test/repo"
+BASE_UPLOAD_FOLDER = os.environ.get("BASE_UPLOAD_FOLDER", "/home/azureuser/proj-documind/test/repo")
 
-os.makedirs(
-    BASE_UPLOAD_FOLDER,
-    exist_ok=True
-)
+try:
+    os.makedirs(BASE_UPLOAD_FOLDER, exist_ok=True)
+except Exception:
+    BASE_UPLOAD_FOLDER = os.path.expanduser("~/proj-documind/test/repo")
+    os.makedirs(BASE_UPLOAD_FOLDER, exist_ok=True)
 
 
 # --------------------------------------------------
 # PostgreSQL configuration
 # --------------------------------------------------
 DB_CONFIG = {
-    "host": "localhost",
-    "database": "documind_dev",
-    "user": "vadmin",
-    "password": "documind@123"
+    "host": os.environ.get("PGHOST", "localhost"),
+    "database": os.environ.get("PGDATABASE", "documind_dev"),
+    "user": os.environ.get("PGUSER", "vadmin"),
+    "password": os.environ.get("PGPASSWORD", "documind@123"),
 }
 
 
@@ -518,9 +528,33 @@ Error: {str(e)}
 
 
 # --------------------------------------------------
+# Map UI Model to Local Ollama LLM
+# --------------------------------------------------
+def map_ollama_model(selected_name: str) -> str:
+    """Map UI model selection to an available local Ollama LLM."""
+    try:
+        res = ollama.list()
+        pulled = []
+        for m in getattr(res, "models", []):
+            name = getattr(m, "model", "")
+            if "embed" not in name.lower():
+                pulled.append(name)
+        for p in pulled:
+            prefix = selected_name.lower().split("-")[0]
+            if prefix in p.lower():
+                return p
+        if pulled:
+            return pulled[0]
+    except Exception:
+        pass
+    return "qwen2.5:0.5b"
+
+
+# --------------------------------------------------
 # Generate Output Function
 # --------------------------------------------------
 def generate_output(model_name, project_folder):
+
     conn = None
     cursor = None
 
@@ -553,9 +587,13 @@ def generate_output(model_name, project_folder):
             **DB_CONFIG
         )
 
-        register_vector(conn)
+        try:
+            register_vector(conn)
+        except Exception:
+            pass
 
         cursor = conn.cursor()
+
 
         # --------------------------------------------------
         # Process all files
@@ -741,7 +779,7 @@ Chunk was not added to the PostgreSQL insert list.
                 if path.lower().endswith(".py"):
                     try:
                         execution = subprocess.run(
-                            ["python3.12", path],
+                            ["python3", path],
                             capture_output=True,
                             text=True,
                             timeout=60,
@@ -880,14 +918,64 @@ Error: {str(e)}
         if conn is not None:
             conn.close()
 
+    # --------------------------------------------------
+    # AI RAG Retrieval & Documentation Generation
+    # --------------------------------------------------
+    ai_generation_output = ""
+    try:
+        from retrieval_postgres import retrieve_from_postgres
+        target_llm = map_ollama_model(model_name)
+        print(f"Generating RAG output using model: {target_llm} from documind_nprd.chunk_details...")
+
+        rag_result = retrieve_from_postgres(
+            query="Summarize the codebase architecture, key classes, methods, and responsibilities.",
+            db_config=DB_CONFIG,
+            table_name="documind_nprd.chunk_details",
+            top_k=6,
+            llm_model=target_llm,
+            prompt_type="standard",
+        )
+
+        sources_summary = []
+        for s in rag_result.get("sources", []):
+            sources_summary.append(
+                f"• [{s['file_name']}] lines {s['chunk_start_line']}-{s['chunk_end_line']}: "
+                f"{s['chunk_type']} '{s['chunk_name']}' (similarity: {s['similarity']})"
+            )
+
+        formatted_sources = "\n".join(sources_summary)
+
+        ai_generation_output = f"""
+================================================================================
+🤖 AI CODE DOCUMENTATION & INSIGHTS (Generated via Local LLM: {target_llm})
+================================================================================
+
+{rag_result['answer']}
+
+================================================================================
+📚 RETRIEVED SOURCES ({rag_result['num_sources']} chunks from documind_nprd.chunk_details)
+================================================================================
+
+{formatted_sources}
+"""
+    except Exception as rag_err:
+        ai_generation_output = f"""
+================================================================================
+⚠️ AI Documentation Generation Notice:
+{str(rag_err)}
+================================================================================
+"""
+
     return (
         f"📂 Project folder: {project_folder}\n\n"
         f"📄 Processing {len(file_paths)} file(s)\n\n"
         f"🤖 Selected Model: {model_name}\n\n"
+        + ai_generation_output + "\n\n"
+        + database_status + "\n\n"
         + "\n".join(results)
-        + database_status
         + "\n\n✅ Output generation completed."
     )
+
 
 
 # --------------------------------------------------
@@ -922,9 +1010,6 @@ def upload_and_show(
     )
 
 
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
 # --------------------------------------------------
 # UI
 # --------------------------------------------------
@@ -1045,6 +1130,55 @@ and generate insights from your files.
                     interactive=False
                 )
 
+        with gr.Row():
+            with gr.Column(scale=2):
+                gr.Markdown("---")
+                gr.Markdown("### 💬 Ask DocuMind (Query Ingested Database)")
+                with gr.Row():
+                    query_input = gr.Textbox(
+                        label="Question or Prompt",
+                        placeholder="e.g. Explain how database connection works, or list all classes and exceptions",
+                        lines=2,
+                        scale=4,
+                    )
+                    ask_btn = gr.Button("🔍 Query Database", variant="secondary", scale=1)
+
+                query_answer_box = gr.Textbox(
+                    label="AI Answer (Retrieved from documind_nprd.chunk_details)",
+                    lines=10,
+                    interactive=False,
+                )
+
+        def on_ask_code(user_q, chosen_model):
+            if not user_q or not user_q.strip():
+                return "⚠️ Please enter a question or query."
+            try:
+                from retrieval_postgres import retrieve_from_postgres
+                target_llm = map_ollama_model(chosen_model)
+                q_clean = user_q.strip()
+                is_doc = any(w in q_clean.lower() for w in ["confluence", "architect", "overview", "document", "high level", "summary", "summarize"])
+                res = retrieve_from_postgres(
+                    query=q_clean,
+                    db_config=DB_CONFIG,
+                    table_name="documind_nprd.chunk_details",
+                    top_k=7 if is_doc else 5,
+                    llm_model=target_llm,
+                    prompt_type="standard" if is_doc else "qa",
+                )
+                output = res["answer"] + "\n\n" + "=" * 50 + "\n📚 Sources:\n"
+                for s in res.get("sources", []):
+                    output += f"• [{s['file_name']}] lines {s['chunk_start_line']}-{s['chunk_end_line']}: {s['chunk_name']} (similarity: {s['similarity']})\n"
+                return output
+            except Exception as e:
+                return f"❌ Query error: {str(e)}"
+
+        ask_btn.click(
+            fn=on_ask_code,
+            inputs=[query_input, model_selector],
+            outputs=[query_answer_box],
+            api_name=False,
+        )
+
         # --------------------------------------------------
         # Project Button Action
         # --------------------------------------------------
@@ -1107,6 +1241,7 @@ and generate insights from your files.
             ],
             api_name=False
         )
+
 
     return demo
 
