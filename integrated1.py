@@ -1554,5 +1554,11 @@ if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0",
         server_port=7861,
-        share=True
+        share=True,
+        allowed_paths=[
+            os.path.join(
+                BASE_UPLOAD_FOLDER,
+                "_confluence_drafts"
+            )
+        ]
     )
