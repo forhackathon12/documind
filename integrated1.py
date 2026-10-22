@@ -636,13 +636,13 @@ def save_confluence_draft(project_folder, prompt, rag_result, model_name):
     return draft_path
 
 
-def generate_confluence_draft(prompt, model_name, project_folder):
+def generate_confluence_draft(model_name, project_folder):
     if not project_folder:
         return "Upload a project and process it before generating a draft.", None
     if not model_name:
         return "Select an AI model before generating a draft.", None
-    if not prompt or not prompt.strip():
-        return "Enter a documentation prompt.", None
+
+    prompt = DEFAULT_CONFLUENCE_PROMPT
 
     try:
         from retrieval_postgres import retrieve_from_postgres
@@ -1254,19 +1254,11 @@ and generate insights from your files.
                 with gr.Row():
                     with gr.Column(scale=2):
                         gr.Markdown(
-                            "### Confluence Draft\n"
                             "Confluence is not connected in this prototype. "
-                            "After processing the project, edit the default prompt "
-                            "if needed and generate a Markdown draft for download "
-                            "and manual publishing."
-                        )
-                        confluence_prompt = gr.Textbox(
-                            label="Documentation prompt",
-                            value=DEFAULT_CONFLUENCE_PROMPT,
-                            lines=5
+                            "Generate a Markdown document to download and publish manually."
                         )
                         confluence_btn = gr.Button(
-                            "Generate Confluence Draft",
+                            "Generate Confluence doc",
                             variant="secondary",
                             interactive=False
                         )
@@ -1437,7 +1429,6 @@ and generate insights from your files.
         confluence_btn.click(
             fn=generate_confluence_draft,
             inputs=[
-                confluence_prompt,
                 model_selector,
                 project_folder_state
             ],
