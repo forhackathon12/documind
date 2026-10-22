@@ -1286,13 +1286,13 @@ and generate insights from your files.
                 pass
 
         # --------------------------------------------------
-        # Generate Output Section
+        # Project Processing and Documentation Section
         # --------------------------------------------------
         with gr.Row():
 
             with gr.Column(scale=2):
-                generate_btn = gr.Button(
-                    "🚀 Generate Output",
+                process_btn = gr.Button(
+                    "Process & Index Project",
                     variant="primary",
                     min_width=120,
                     size="sm",
@@ -1300,36 +1300,52 @@ and generate insights from your files.
                 )
 
                 output_box = gr.Textbox(
-                    label="Generated Output",
+                    label="Processing Output",
                     lines=25,
                     max_lines=40,
                     interactive=False
                 )
 
+                gr.Markdown(
+                    "### Generate Documents\n"
+                    "Confluence is not connected. Generated Markdown files "
+                    "can be downloaded and published manually."
+                )
                 with gr.Row():
-                    with gr.Column(scale=2):
-                        gr.Markdown(
-                            "Confluence is not connected in this prototype. "
-                            "Generate a Markdown document to download and publish manually."
-                        )
-                        confluence_btn = gr.Button(
-                            "Generate Confluence doc",
-                            variant="secondary",
+                    document_btn = gr.Button(
+                        "Generate Document",
+                        variant="secondary",
+                        interactive=False
+                    )
+                    exceptions_btn = gr.Button(
+                        "Generate Exceptions",
+                        variant="secondary",
+                        interactive=False
+                    )
+                with gr.Row():
+                    with gr.Column():
+                        document_status = gr.Textbox(
+                            label="Document status",
                             interactive=False
                         )
-                        confluence_status = gr.Textbox(
-                            label="Draft status",
+                        document_file = gr.File(
+                            label="Download document",
                             interactive=False
                         )
-                        confluence_draft_file = gr.File(
-                            label="Download Markdown draft",
+                    with gr.Column():
+                        exceptions_status = gr.Textbox(
+                            label="Exceptions status",
+                            interactive=False
+                        )
+                        exceptions_file = gr.File(
+                            label="Download exceptions document",
                             interactive=False
                         )
         
         with gr.Row():
             with gr.Column(scale=2):
                 gr.Markdown("---")
-                gr.Markdown("### 💬 Ask DocuMind (Query Ingested Database)")
+                gr.Markdown("### Ask DocuMind")
                 with gr.Row():
                     query_input = gr.Textbox(
                         label="Question or Prompt",
@@ -1337,7 +1353,12 @@ and generate insights from your files.
                         lines=2,
                         scale=4,
                     )
-                    ask_btn = gr.Button("🔍 Query Database", variant="secondary", scale=1)
+                    ask_btn = gr.Button(
+                        "Ask DocuMind",
+                        variant="secondary",
+                        scale=1,
+                        interactive=False
+                    )
 
                 query_answer_box = gr.Textbox(
                     label="AI Answer",
@@ -1387,12 +1408,17 @@ and generate insights from your files.
                 project_folder_state,
                 upload_status,
                 model_selector,
-                generate_btn,
+                process_btn,
                 output_box,
                 project_indexed_state,
-                confluence_btn,
-                confluence_status,
-                confluence_draft_file
+                document_btn,
+                document_status,
+                document_file,
+                exceptions_btn,
+                exceptions_status,
+                exceptions_file,
+                ask_btn,
+                query_answer_box
             ],
             api_name=False
         )
@@ -1407,12 +1433,17 @@ and generate insights from your files.
                 project_folder_state,
                 upload_status,
                 model_selector,
-                generate_btn,
+                process_btn,
                 output_box,
                 project_indexed_state,
-                confluence_btn,
-                confluence_status,
-                confluence_draft_file
+                document_btn,
+                document_status,
+                document_file,
+                exceptions_btn,
+                exceptions_status,
+                exceptions_file,
+                ask_btn,
+                query_answer_box
             ],
             api_name=False
         )
@@ -1445,8 +1476,10 @@ and generate insights from your files.
                 project_indexed_state
             ],
             outputs=[
-                generate_btn,
-                confluence_btn
+                process_btn,
+                document_btn,
+                exceptions_btn,
+                ask_btn
             ],
             api_name=False
         )
@@ -1459,8 +1492,10 @@ and generate insights from your files.
                 project_indexed_state
             ],
             outputs=[
-                generate_btn,
-                confluence_btn
+                process_btn,
+                document_btn,
+                exceptions_btn,
+                ask_btn
             ],
             api_name=False
         )
@@ -1468,7 +1503,7 @@ and generate insights from your files.
         # --------------------------------------------------
         # Generate Button Action
         # --------------------------------------------------
-        generate_btn.click(
+        process_btn.click(
             fn=generate_output,
             inputs=[
                 model_selector,
@@ -1481,15 +1516,28 @@ and generate insights from your files.
             api_name=False
         )
 
-        confluence_btn.click(
-            fn=generate_confluence_draft,
+        document_btn.click(
+            fn=generate_project_document,
             inputs=[
                 model_selector,
                 project_folder_state
             ],
             outputs=[
-                confluence_status,
-                confluence_draft_file
+                document_status,
+                document_file
+            ],
+            api_name=False
+        )
+
+        exceptions_btn.click(
+            fn=generate_exceptions_document,
+            inputs=[
+                model_selector,
+                project_folder_state
+            ],
+            outputs=[
+                exceptions_status,
+                exceptions_file
             ],
             api_name=False
         )
