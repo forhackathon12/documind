@@ -154,12 +154,35 @@ def generate_query_embedding(
 
 # ── Vector Search Query ───────────────────────────────────────────────────────
 
+def _build_chunk_scope_filter(
+    file_filter: Optional[str],
+    project_filter: Optional[str],
+) -> tuple:
+    clauses = []
+    params = []
+
+    if file_filter:
+        clauses.append("file_name = %s")
+        params.append(file_filter)
+
+    if project_filter:
+        project_prefix = f"{project_filter.rstrip('/')}/"
+        clauses.append("left(file_name, %s) = %s")
+        params.extend([len(project_prefix), project_prefix])
+
+    if not clauses:
+        return "", params
+
+    return " WHERE " + " AND ".join(clauses), params
+
+
 def search_similar_chunks(
     conn,
     query_embedding: np.ndarray,
     table_name: str = DEFAULT_TABLE,
     top_k: int = 5,
     file_filter: Optional[str] = None,
+    project_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Execute cosine similarity search on the table `documind_nprd.chunk_details`.
@@ -181,10 +204,12 @@ def search_similar_chunks(
                 (chunk_embeddings <=> %s) AS distance
             FROM {table_name}
         """
-        params = [query_embedding]
-        if file_filter:
-            base_query += " WHERE file_name = %s "
-            params.append(file_filter)
+        filter_sql, filter_params = _build_chunk_scope_filter(
+            file_filter,
+            project_filter
+        )
+        base_query += filter_sql
+        params = [query_embedding, *filter_params]
         base_query += " ORDER BY chunk_embeddings <=> %s ASC LIMIT %s "
         params.extend([query_embedding, top_k])
 
@@ -225,10 +250,11 @@ def search_similar_chunks(
                 chunk_embeddings
             FROM {table_name}
         """
-        params = []
-        if file_filter:
-            select_query += " WHERE file_name = %s "
-            params.append(file_filter)
+        filter_sql, params = _build_chunk_scope_filter(
+            file_filter,
+            project_filter
+        )
+        select_query += filter_sql
 
         try:
             cursor.execute(select_query, params)
@@ -387,6 +413,7 @@ def retrieve_from_postgres(
     prompt_type: str = "standard",
     custom_instructions: str = "",
     file_filter: Optional[str] = None,
+    project_filter: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Main retrieval pipeline connecting directly to `ingestionpipeline.py`'s Postgres table.
@@ -401,6 +428,7 @@ def retrieve_from_postgres(
         prompt_type:         "standard" | "exceptions" | "custom" | "qa".
         custom_instructions: Instructions when prompt_type="custom".
         file_filter:         Optional single file filter.
+        project_filter:      Optional project folder prefix stored in file_name.
 
     Returns:
         Dict with keys:
@@ -424,6 +452,7 @@ def retrieve_from_postgres(
             table_name=table_name,
             top_k=top_k,
             file_filter=file_filter,
+            project_filter=project_filter,
         )
 
         if not chunks:
