@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import numpy as np
 import ollama
@@ -688,15 +689,18 @@ def list_documents(search="", selected=None):
 
 def preview_document(relative_path):
     if not relative_path:
-        return "No documents found.", None
+        return "", None
     root = document_root()
     path = (root / relative_path).resolve()
     if not path.is_relative_to(root) or path.suffix.lower() != ".md":
-        return "Document unavailable.", None
+        return "", None
     try:
-        return path.read_text(encoding="utf-8"), str(path)
-    except (OSError, UnicodeError):
-        return "Document unavailable. Refresh the library.", None
+        if not path.is_file():
+            return "", None
+        return "documents/" + quote(path.relative_to(root).as_posix(), safe="/"), str(path)
+    except (ImportError, OSError, UnicodeError) as preview_exception:
+        gr.Warning(f"Document unavailable. Refresh the library. Details: {preview_exception}")
+        return "", None
 
 
 def save_markdown_draft(
@@ -1312,6 +1316,7 @@ and generate insights from your files.
         )
 
         with gr.Tab("Documents"):
+            gr.Markdown('<a href="documents" target="_blank" rel="noopener noreferrer">Open Documents</a>')
             with gr.Row():
                 document_search = gr.Textbox(label="Search projects or documents", scale=4)
                 refresh_documents = gr.Button("Refresh", scale=1)
@@ -1324,9 +1329,31 @@ and generate insights from your files.
             )
             selected_document = gr.Dropdown(label="Document", choices=[], interactive=True)
             library_download = gr.File(label="Download Markdown", interactive=False)
-            library_preview = gr.Markdown(sanitize_html=True)
+            library_preview = gr.Textbox(visible=False)
+            open_document_btn = gr.Button("Open Document in New Tab", variant="secondary")
             export_html_btn = gr.Button("Export HTML Library", variant="secondary")
             library_html_download = gr.File(label="Download HTML Library", interactive=False)
+
+        open_document_btn.click(
+            fn=None,
+            inputs=[library_preview],
+            outputs=[],
+            js="""(documentPath) => {
+                if (!documentPath) {
+                    window.alert("Select an available document first.");
+                    return [];
+                }
+                const base = new URL(window.location.href);
+                base.search = "";
+                base.hash = "";
+                if (!base.pathname.endsWith("/")) base.pathname += "/";
+                const url = new URL(documentPath, base);
+                window.open(url, "_blank", "noopener,noreferrer");
+                return [];
+            }""",
+            queue=False,
+            api_name=False,
+        )
 
         export_html_btn.click(
             fn=export_html_library,
@@ -1700,12 +1727,15 @@ and generate insights from your files.
 # Main
 # --------------------------------------------------
 if __name__ == "__main__":
+    from document_library import create_document_routes
+
     demo = build_ui()
 
     demo.launch(
         server_name="0.0.0.0",
         server_port=7861,
         share=True,
+        app_kwargs={"routes": create_document_routes(document_root())},
         allowed_paths=[
             os.path.join(
                 BASE_UPLOAD_FOLDER,
