@@ -5,6 +5,7 @@ import subprocess
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import quote
 
 import numpy as np
@@ -769,6 +770,7 @@ def generate_markdown_document(
     if not model_name:
         return "Select an AI model before generating a draft."
 
+    started_at = perf_counter()
     try:
         from retrieval_postgres import retrieve_from_postgres
 
@@ -801,7 +803,8 @@ def generate_markdown_document(
         link_label = "Open Exceptions" if filename == "exceptions_draft.md" else "Open Document"
         return (
             '<p><strong>Draft generated.</strong> '
-            f'<a href="{document_url}" target="_blank" rel="noopener noreferrer">{link_label}</a></p>'
+            f'<a href="{document_url}" target="_blank" rel="noopener noreferrer">{link_label}</a><br>'
+            f'Model: {escape(target_llm)} | Processing time: {perf_counter() - started_at:.1f} seconds</p>'
         )
     except Exception as draft_exception:
         return f"Draft generation failed: {escape(str(draft_exception))}"
@@ -834,6 +837,7 @@ def generate_output(
     model_name,
     project_folder
 ):
+    started_at = perf_counter()
     conn = None
     cursor = None
 
@@ -1199,12 +1203,8 @@ Error: {str(file_exception)}
         indexing_succeeded = inserted_count > 0
 
         database_status = (
-            "\n\nPOSTGRESQL BULK INSERT\n"
-            "============================================"
-            "====================================\n\n"
-            f"✅ Successfully inserted "
-            f"{inserted_count} chunk(s) into:\n"
-            "documind_nprd.chunk_details"
+            f"Indexing: {inserted_count} chunk(s) saved."
+            if indexing_succeeded else "Indexing: No chunks were saved."
         )
 
     except Exception as database_exception:
@@ -1212,12 +1212,7 @@ Error: {str(file_exception)}
             conn.rollback()
 
         database_status = (
-            "\n\nPOSTGRESQL BULK INSERT\n"
-            "============================================"
-            "====================================\n\n"
-            "❌ PostgreSQL bulk insert failed.\n\n"
-            f"Error: {str(database_exception)}\n\n"
-            "The transaction was rolled back."
+            f"Indexing failed: {str(database_exception)}. Transaction rolled back."
         )
 
     finally:
@@ -1231,6 +1226,7 @@ Error: {str(file_exception)}
     # AI RAG Retrieval & Documentation Generation
     # --------------------------------------------------
     ai_generation_output = ""
+    target_llm = "Not resolved"
     try:
         from retrieval_postgres import retrieve_from_postgres
         target_llm = map_ollama_model(model_name)
@@ -1246,29 +1242,23 @@ Error: {str(file_exception)}
             project_filter=project_name,
         )
 
-        ai_generation_output = f"""
-================================================================================
-🤖 AI CODE DOCUMENTATION & INSIGHTS (Generated via Local LLM: {target_llm})
-================================================================================
-
-{rag_result['answer']}
-"""
+        if "LLM Generation Error:" in rag_result.get("answer", ""):
+            ai_generation_output = rag_result["answer"]
+        else:
+            ai_generation_output = (
+                "Overview: Generated." if rag_result.get("sources")
+                else "Overview: No matching code chunks found."
+            )
     except Exception as rag_err:
-        ai_generation_output = f"""
-================================================================================
-⚠️ AI Documentation Generation Notice:
-{str(rag_err)}
-================================================================================
-"""
+        ai_generation_output = f"Overview failed: {str(rag_err)}"
 
+    print("\n".join(results))
     return (
-        f"📂 Project folder: {project_folder}\n\n"
-        f"📄 Processing {len(file_paths)} file(s)\n\n"
-        f"🤖 Selected Model: {model_name}\n\n"
-        + ai_generation_output + "\n\n"
-        + database_status + "\n\n"
-        + "\n".join(results)
-        + "\n\n✅ Output generation completed.",
+        f"Processing finished in {perf_counter() - started_at:.1f} seconds.\n"
+        f"Files found: {len(file_paths)}\n"
+        "Embedding model: mxbai-embed-large\n"
+        f"Generation model: {target_llm}\n"
+        f"{database_status}\n{ai_generation_output}",
         indexing_succeeded
     )
 
@@ -1524,9 +1514,9 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 )
 
                 output_box = gr.Textbox(
-                    label="Processing Output",
-                    lines=25,
-                    max_lines=40,
+                    label="Processing Summary",
+                    lines=6,
+                    max_lines=8,
                     interactive=False,
                     elem_classes=["dm-field", "dm-field-blue"]
                 )
