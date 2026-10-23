@@ -1342,6 +1342,56 @@ DASHBOARD_CSS = """
         }
         #model_radio { border-top: 3px solid #146e82; }
         #documind-header p, #documind-header a { color: #254638; }
+        .gradio-container .dm-field {
+            --field-accent: #176948;
+            --field-tint: #edf7f1;
+            --block-label-text-color: var(--field-accent);
+            --block-background-fill: var(--field-tint);
+            --block-border-color: #b8d7cb;
+            --input-background-fill: #fff;
+            --input-text-color: #243c32;
+            background: var(--field-tint) !important;
+            border-color: #b8d7cb !important;
+            border-left: 3px solid var(--field-accent) !important;
+            border-radius: 6px;
+        }
+        .gradio-container .dm-field-blue {
+            --field-accent: #146e82;
+            --field-tint: #edf5fa;
+        }
+        .gradio-container .dm-field [data-testid="block-info"],
+        .gradio-container .dm-field [data-testid="block-label"] {
+            color: var(--field-accent) !important;
+            font-weight: 600;
+        }
+        .gradio-container .dm-field textarea,
+        .gradio-container .dm-field input:not([type="radio"]) {
+            background: #fff !important;
+            color: #243c32 !important;
+            border-color: #b8d7cb !important;
+        }
+        .gradio-container .dm-field textarea:disabled {
+            background: var(--field-tint) !important;
+            opacity: 1;
+            -webkit-text-fill-color: #243c32;
+        }
+        .gradio-container .dm-upload-area button {
+            background: #edf5fa !important;
+            color: #146e82 !important;
+            border: 1px dashed #488c9c;
+        }
+        .gradio-container .dm-upload-area button:hover { background: #deedf5 !important; }
+        #model_radio label {
+            background: #fff;
+            color: #245362;
+            border-color: #c1d9e0;
+        }
+        #model_radio label:has(input:checked) {
+            background: #dcefe7;
+            border-color: #176948;
+            color: #12523a;
+        }
+        #model_radio input { accent-color: #176948; }
         """
 
 
@@ -1385,7 +1435,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 placeholder=(
                     "Enter project name, for example: projectA"
                 ),
-                scale=1
+                scale=1,
+                elem_classes=["dm-field"]
             )
 
         # --------------------------------------------------
@@ -1399,11 +1450,13 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     value="Folder",
                     label="Upload Type",
                     interactive=True,
+                    elem_classes=["dm-field", "dm-field-blue"],
                 )
                 files = gr.File(
                     label="Select Folder to Upload",
                     file_count="directory",
-                    type="filepath"
+                    type="filepath",
+                    elem_classes=["dm-field", "dm-field-blue", "dm-upload-area"]
                 )
                 upload_mode.change(
                     fn=update_upload_mode,
@@ -1426,7 +1479,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     label="Upload Status",
                     lines=8,
                     max_lines=12,
-                    interactive=False
+                    interactive=False,
+                    elem_classes=["dm-field"]
                 )
 
         # --------------------------------------------------
@@ -1447,7 +1501,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     label="Select Model",
                     value=None,
                     interactive=False,
-                    elem_id="model_radio"
+                    elem_id="model_radio",
+                    elem_classes=["dm-field", "dm-field-blue"]
                 )
 
             with gr.Column(scale=1):
@@ -1472,7 +1527,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     label="Processing Output",
                     lines=25,
                     max_lines=40,
-                    interactive=False
+                    interactive=False,
+                    elem_classes=["dm-field", "dm-field-blue"]
                 )
 
                 gr.Markdown(
@@ -1506,6 +1562,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                         placeholder="e.g. Explain how database connection works, or list all classes and exceptions",
                         lines=2,
                         scale=4,
+                        elem_classes=["dm-field", "dm-field-blue"],
                     )
                     ask_btn = gr.Button(
                         "Ask DocuMind",
@@ -1519,6 +1576,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     label="AI Answer",
                     lines=10,
                     interactive=False,
+                    elem_classes=["dm-field"],
                 )
 
         def on_ask_code(user_q, chosen_model, active_project_folder):
