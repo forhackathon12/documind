@@ -1320,6 +1320,9 @@ def build_ui():
 Enter the project name, upload your documents, select an AI model,
 and generate insights from your files.
 </p>
+<p style="text-align: center;">
+Want to go to documents? <a href="./documents" target="_blank" rel="noopener noreferrer">Click here</a>.
+</p>
 """
         )
 
@@ -1662,11 +1665,6 @@ and generate insights from your files.
                 exceptions_open
             ],
             api_name=False
-        )
-
-        gr.HTML(
-            '<p><a href="./documents" target="_blank" rel="noopener noreferrer">'
-            'View generated code documentation</a></p>'
         )
 
     return demo
