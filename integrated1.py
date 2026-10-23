@@ -811,7 +811,8 @@ def generate_markdown_document(
 
 
 def generate_project_document(model_name, project_folder):
-    return generate_markdown_document(
+    yield '<p role="status">Generating document. Please wait...</p>'
+    yield generate_markdown_document(
         model_name,
         project_folder,
         DEFAULT_CONFLUENCE_PROMPT,
@@ -821,7 +822,8 @@ def generate_project_document(model_name, project_folder):
 
 
 def generate_exceptions_document(model_name, project_folder):
-    return generate_markdown_document(
+    yield '<p role="status">Generating exception report. Please wait...</p>'
+    yield generate_markdown_document(
         model_name,
         project_folder,
         EXCEPTIONS_PROMPT,
@@ -1382,6 +1384,11 @@ DASHBOARD_CSS = """
             color: #12523a;
         }
         #model_radio input { accent-color: #176948; }
+        .gradio-container .dm-generation-status {
+            min-height: 52px;
+            color: #176948;
+        }
+        .gradio-container .dm-generation-status p { margin: 8px 0; }
         """
 
 
@@ -1532,7 +1539,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             interactive=False,
                             elem_classes=["dm-action", "dm-green"]
                         )
-                        document_status = gr.HTML(value="")
+                        document_status = gr.HTML(value="", elem_classes=["dm-generation-status"])
                     with gr.Column():
                         exceptions_btn = gr.Button(
                             "Generate Exceptions",
@@ -1540,7 +1547,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             interactive=False,
                             elem_classes=["dm-action", "dm-amber"]
                         )
-                        exceptions_status = gr.HTML(value="")
+                        exceptions_status = gr.HTML(value="", elem_classes=["dm-generation-status"])
         
         with gr.Row():
             with gr.Column(scale=2):
@@ -1724,8 +1731,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 document_status
             ],
-            show_progress="minimal",
-            show_progress_on=[document_status],
+            show_progress="hidden",
             api_name=False
         )
 
@@ -1738,8 +1744,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 exceptions_status
             ],
-            show_progress="minimal",
-            show_progress_on=[exceptions_status],
+            show_progress="hidden",
             api_name=False
         )
 
@@ -1759,6 +1764,7 @@ if __name__ == "__main__":
         server_port=7861,
         share=True,
         css=DASHBOARD_CSS,
+        show_error=True,
         app_kwargs={"routes": create_document_routes(document_root())},
         allowed_paths=[
             os.path.join(
