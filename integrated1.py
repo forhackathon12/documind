@@ -311,10 +311,8 @@ def reset_project_workflow():
         False,
         gr.update(interactive=False),
         "",
-        None,
         gr.update(interactive=False),
         "",
-        None,
         gr.update(interactive=False),
         "",
         "",
@@ -340,10 +338,8 @@ def reset_file_workflow():
         False,
         gr.update(interactive=False),
         "",
-        None,
         gr.update(interactive=False),
         "",
-        None,
         gr.update(interactive=False),
         "",
         "",
@@ -772,9 +768,9 @@ def generate_markdown_document(
     filename
 ):
     if not project_folder:
-        return "Upload a project and process it before generating a draft.", None, ""
+        return "Upload a project and process it before generating a draft.", ""
     if not model_name:
-        return "Select an AI model before generating a draft.", None, ""
+        return "Select an AI model before generating a draft.", ""
 
     try:
         from retrieval_postgres import retrieve_from_postgres
@@ -793,7 +789,7 @@ def generate_markdown_document(
         )
 
         if not rag_result.get("sources"):
-            return rag_result.get("answer", "No indexed code chunks were found."), None, ""
+            return rag_result.get("answer", "No indexed code chunks were found."), ""
 
         draft_path = save_markdown_draft(
             project_folder,
@@ -807,13 +803,11 @@ def generate_markdown_document(
         document_url = "./documents/" + quote(relative_path, safe="/")
         link_label = "Open Exceptions" if filename == "exceptions_draft.md" else "Open Document"
         return (
-            "Draft generated. Open it in a new tab using the link below, or "
-            "download the Markdown file for manual Confluence publishing.",
-            draft_path,
+            "Draft generated. Open it in a new tab using the link below.",
             f'<a href="{document_url}" target="_blank" rel="noopener noreferrer">{link_label}</a>'
         )
     except Exception as draft_exception:
-        return f"Draft generation failed: {str(draft_exception)}", None, ""
+        return f"Draft generation failed: {str(draft_exception)}", ""
 
 
 def generate_project_document(model_name, project_folder):
@@ -1298,6 +1292,36 @@ def build_ui():
         #model_radio .wrap label {
             width: 100% !important;
         }
+        .gradio-container {
+            --dm-accent: #176948;
+            --dm-secondary: #146e82;
+        }
+        #documind-header {
+            background: #eaf5ef;
+            border-top: 4px solid var(--dm-accent);
+            border-bottom: 1px solid #bfd8cb;
+            padding: 20px 16px;
+            color: #254638;
+        }
+        #documind-header h1 { color: #12523a; }
+        .gradio-container a {
+            color: var(--dm-secondary);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            font-weight: 600;
+        }
+        .gradio-container a:hover { color: #12523a; }
+        .gradio-container h3 {
+            color: var(--dm-accent);
+            border-bottom: 2px solid #c8ded3;
+            padding-bottom: 8px;
+        }
+        .gradio-container button.primary {
+            background: #176948;
+            border-color: #176948;
+            color: #fff;
+        }
+        .gradio-container button.primary:hover:not(:disabled) { background: #12523a; }
         """
     ) as demo:
 
@@ -1323,7 +1347,8 @@ and generate insights from your files.
 <p style="text-align: center;">
 Want to go to documents? <a href="./documents" target="_blank" rel="noopener noreferrer">Click here</a>.
 </p>
-"""
+""",
+        elem_id="documind-header"
         )
 
         # --------------------------------------------------
@@ -1424,9 +1449,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 )
 
                 gr.Markdown(
-                    "### Generate Documents\n"
-                    "Confluence is not connected. Generated Markdown files "
-                    "can be downloaded and published manually."
+                    "### Generate Documents"
                 )
                 with gr.Row():
                     document_btn = gr.Button(
@@ -1446,20 +1469,12 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             interactive=False
                         )
                         document_open = gr.HTML(value="")
-                        document_file = gr.File(
-                            label="Download document",
-                            interactive=False
-                        )
                     with gr.Column():
                         exceptions_status = gr.Textbox(
                             label="Exceptions status",
                             interactive=False
                         )
                         exceptions_open = gr.HTML(value="")
-                        exceptions_file = gr.File(
-                            label="Download exceptions document",
-                            interactive=False
-                        )
         
         with gr.Row():
             with gr.Column(scale=2):
@@ -1532,10 +1547,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 project_indexed_state,
                 document_btn,
                 document_status,
-                document_file,
                 exceptions_btn,
                 exceptions_status,
-                exceptions_file,
                 ask_btn,
                 query_answer_box,
                 document_open,
@@ -1559,10 +1572,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 project_indexed_state,
                 document_btn,
                 document_status,
-                document_file,
                 exceptions_btn,
                 exceptions_status,
-                exceptions_file,
                 ask_btn,
                 query_answer_box,
                 document_open,
@@ -1647,7 +1658,6 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             ],
             outputs=[
                 document_status,
-                document_file,
                 document_open
             ],
             api_name=False
@@ -1661,7 +1671,6 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             ],
             outputs=[
                 exceptions_status,
-                exceptions_file,
                 exceptions_open
             ],
             api_name=False
