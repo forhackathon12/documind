@@ -1479,22 +1479,21 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     "### Generate Documents"
                 )
                 with gr.Row():
-                    document_btn = gr.Button(
-                        "Generate Document",
-                        variant="secondary",
-                        interactive=False,
-                        elem_classes=["dm-action", "dm-green"]
-                    )
-                    exceptions_btn = gr.Button(
-                        "Generate Exceptions",
-                        variant="secondary",
-                        interactive=False,
-                        elem_classes=["dm-action", "dm-amber"]
-                    )
-                with gr.Row():
                     with gr.Column():
+                        document_btn = gr.Button(
+                            "Generate Document",
+                            variant="secondary",
+                            interactive=False,
+                            elem_classes=["dm-action", "dm-green"]
+                        )
                         document_status = gr.HTML(value="")
                     with gr.Column():
+                        exceptions_btn = gr.Button(
+                            "Generate Exceptions",
+                            variant="secondary",
+                            interactive=False,
+                            elem_classes=["dm-action", "dm-amber"]
+                        )
                         exceptions_status = gr.HTML(value="")
         
         with gr.Row():
@@ -1677,6 +1676,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 document_status
             ],
+            show_progress="minimal",
+            show_progress_on=[document_status],
             api_name=False
         )
 
@@ -1689,6 +1690,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 exceptions_status
             ],
+            show_progress="minimal",
+            show_progress_on=[exceptions_status],
             api_name=False
         )
 
