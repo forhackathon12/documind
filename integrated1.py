@@ -811,8 +811,7 @@ def generate_markdown_document(
 
 
 def generate_project_document(model_name, project_folder):
-    yield '<p role="status">Generating document. Please wait...</p>'
-    yield generate_markdown_document(
+    return generate_markdown_document(
         model_name,
         project_folder,
         DEFAULT_CONFLUENCE_PROMPT,
@@ -822,8 +821,7 @@ def generate_project_document(model_name, project_folder):
 
 
 def generate_exceptions_document(model_name, project_folder):
-    yield '<p role="status">Generating exception report. Please wait...</p>'
-    yield generate_markdown_document(
+    return generate_markdown_document(
         model_name,
         project_folder,
         EXCEPTIONS_PROMPT,
@@ -1385,9 +1383,25 @@ DASHBOARD_CSS = """
         }
         #model_radio input { accent-color: #176948; }
         .gradio-container .dm-generation-status {
-            min-height: 52px;
-            color: #176948;
+            min-height: 112px;
+            box-sizing: border-box;
+            padding: 16px;
+            background: #edf7f1;
+            border: 1px solid #b8d7cb;
+            border-left: 4px solid #176948;
+            border-radius: 6px;
+            color: #254638;
+            overflow-wrap: anywhere;
         }
+        .gradio-container .dm-exceptions-status {
+            background: #fff7e8;
+            border-color: #e6cd9f;
+            border-left-color: #925600;
+            color: #684814;
+        }
+        .gradio-container .dm-generation-status .prose,
+        .gradio-container .dm-generation-status p,
+        .gradio-container .dm-generation-status strong { color: inherit; }
         .gradio-container .dm-generation-status p { margin: 8px 0; }
         """
 
@@ -1539,7 +1553,10 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             interactive=False,
                             elem_classes=["dm-action", "dm-green"]
                         )
-                        document_status = gr.HTML(value="", elem_classes=["dm-generation-status"])
+                        document_status = gr.Markdown(
+                            value="Document status: Ready after project indexing.",
+                            elem_classes=["dm-generation-status"]
+                        )
                     with gr.Column():
                         exceptions_btn = gr.Button(
                             "Generate Exceptions",
@@ -1547,7 +1564,10 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             interactive=False,
                             elem_classes=["dm-action", "dm-amber"]
                         )
-                        exceptions_status = gr.HTML(value="", elem_classes=["dm-generation-status"])
+                        exceptions_status = gr.Markdown(
+                            value="Exceptions status: Ready after project indexing.",
+                            elem_classes=["dm-generation-status", "dm-exceptions-status"]
+                        )
         
         with gr.Row():
             with gr.Column(scale=2):
@@ -1723,6 +1743,13 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
         )
 
         document_btn.click(
+            fn=lambda: "**Processing document...** Please wait.",
+            inputs=[],
+            outputs=[document_status],
+            queue=False,
+            show_progress="hidden",
+            api_name=False
+        ).then(
             fn=generate_project_document,
             inputs=[
                 model_selector,
@@ -1731,11 +1758,19 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 document_status
             ],
-            show_progress="hidden",
+            show_progress="minimal",
+            show_progress_on=[document_status],
             api_name=False
         )
 
         exceptions_btn.click(
+            fn=lambda: "**Processing exception report...** Please wait.",
+            inputs=[],
+            outputs=[exceptions_status],
+            queue=False,
+            show_progress="hidden",
+            api_name=False
+        ).then(
             fn=generate_exceptions_document,
             inputs=[
                 model_selector,
@@ -1744,7 +1779,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 exceptions_status
             ],
-            show_progress="hidden",
+            show_progress="minimal",
+            show_progress_on=[exceptions_status],
             api_name=False
         )
 
