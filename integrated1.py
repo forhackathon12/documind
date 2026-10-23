@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from urllib.parse import quote
 
@@ -314,8 +315,6 @@ def reset_project_workflow():
         gr.update(interactive=False),
         "",
         gr.update(interactive=False),
-        "",
-        "",
         ""
     )
 
@@ -341,8 +340,6 @@ def reset_file_workflow():
         gr.update(interactive=False),
         "",
         gr.update(interactive=False),
-        "",
-        "",
         ""
     )
 
@@ -768,9 +765,9 @@ def generate_markdown_document(
     filename
 ):
     if not project_folder:
-        return "Upload a project and process it before generating a draft.", ""
+        return "Upload a project and process it before generating a draft."
     if not model_name:
-        return "Select an AI model before generating a draft.", ""
+        return "Select an AI model before generating a draft."
 
     try:
         from retrieval_postgres import retrieve_from_postgres
@@ -789,7 +786,7 @@ def generate_markdown_document(
         )
 
         if not rag_result.get("sources"):
-            return rag_result.get("answer", "No indexed code chunks were found."), ""
+            return escape(rag_result.get("answer", "No indexed code chunks were found."))
 
         draft_path = save_markdown_draft(
             project_folder,
@@ -803,11 +800,11 @@ def generate_markdown_document(
         document_url = "./documents/" + quote(relative_path, safe="/")
         link_label = "Open Exceptions" if filename == "exceptions_draft.md" else "Open Document"
         return (
-            "Draft generated. Open it in a new tab using the link below.",
-            f'<a href="{document_url}" target="_blank" rel="noopener noreferrer">{link_label}</a>'
+            '<p><strong>Draft generated.</strong> '
+            f'<a href="{document_url}" target="_blank" rel="noopener noreferrer">{link_label}</a></p>'
         )
     except Exception as draft_exception:
-        return f"Draft generation failed: {str(draft_exception)}", ""
+        return f"Draft generation failed: {escape(str(draft_exception))}"
 
 
 def generate_project_document(model_name, project_folder):
@@ -1280,10 +1277,7 @@ Error: {str(file_exception)}
 # --------------------------------------------------
 # UI
 # --------------------------------------------------
-def build_ui():
-    with gr.Blocks(
-        title="DocuMind",
-        css="""
+DASHBOARD_CSS = """
         #model_radio .wrap {
             flex-direction: column !important;
             align-items: flex-start !important;
@@ -1322,7 +1316,38 @@ def build_ui():
             color: #fff;
         }
         .gradio-container button.primary:hover:not(:disabled) { background: #12523a; }
+        .gradio-container .dm-action {
+            background: var(--action-color) !important;
+            border: 1px solid var(--action-color) !important;
+            color: #fff !important;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .gradio-container .dm-action:hover:not(:disabled) {
+            filter: brightness(0.9);
+        }
+        .gradio-container .dm-action:disabled {
+            background: var(--action-muted) !important;
+            border-color: var(--action-muted) !important;
+            color: var(--action-ink) !important;
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .dm-green { --action-color: #176948; --action-muted: #d4e9de; --action-ink: #28513c; }
+        .dm-teal { --action-color: #146e82; --action-muted: #d8edf2; --action-ink: #25515c; }
+        .dm-amber { --action-color: #925600; --action-muted: #f9e6bf; --action-ink: #684814; }
+        .gradio-container input:focus, .gradio-container textarea:focus {
+            outline: 2px solid #2b8a79;
+            outline-offset: 2px;
+        }
+        #model_radio { border-top: 3px solid #146e82; }
+        #documind-header p, #documind-header a { color: #254638; }
         """
+
+
+def build_ui():
+    with gr.Blocks(
+        title="DocuMind"
     ) as demo:
 
         # Stores the project folder after
@@ -1393,7 +1418,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     variant="secondary",
                     min_width=120,
                     size="sm",
-                    interactive=True
+                    interactive=True,
+                    elem_classes=["dm-action", "dm-teal"]
                 )
 
                 upload_status = gr.Textbox(
@@ -1438,7 +1464,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     variant="primary",
                     min_width=120,
                     size="sm",
-                    interactive=False
+                    interactive=False,
+                    elem_classes=["dm-action", "dm-green"]
                 )
 
                 output_box = gr.Textbox(
@@ -1455,26 +1482,20 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     document_btn = gr.Button(
                         "Generate Document",
                         variant="secondary",
-                        interactive=False
+                        interactive=False,
+                        elem_classes=["dm-action", "dm-green"]
                     )
                     exceptions_btn = gr.Button(
                         "Generate Exceptions",
                         variant="secondary",
-                        interactive=False
+                        interactive=False,
+                        elem_classes=["dm-action", "dm-amber"]
                     )
                 with gr.Row():
                     with gr.Column():
-                        document_status = gr.Textbox(
-                            label="Document status",
-                            interactive=False
-                        )
-                        document_open = gr.HTML(value="")
+                        document_status = gr.HTML(value="")
                     with gr.Column():
-                        exceptions_status = gr.Textbox(
-                            label="Exceptions status",
-                            interactive=False
-                        )
-                        exceptions_open = gr.HTML(value="")
+                        exceptions_status = gr.HTML(value="")
         
         with gr.Row():
             with gr.Column(scale=2):
@@ -1491,7 +1512,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                         "Ask DocuMind",
                         variant="secondary",
                         scale=1,
-                        interactive=False
+                        interactive=False,
+                        elem_classes=["dm-action", "dm-teal"]
                     )
 
                 query_answer_box = gr.Textbox(
@@ -1550,9 +1572,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 exceptions_btn,
                 exceptions_status,
                 ask_btn,
-                query_answer_box,
-                document_open,
-                exceptions_open
+                query_answer_box
             ],
             api_name=False
         )
@@ -1575,9 +1595,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 exceptions_btn,
                 exceptions_status,
                 ask_btn,
-                query_answer_box,
-                document_open,
-                exceptions_open
+                query_answer_box
             ],
             api_name=False
         )
@@ -1657,8 +1675,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 project_folder_state
             ],
             outputs=[
-                document_status,
-                document_open
+                document_status
             ],
             api_name=False
         )
@@ -1670,8 +1687,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 project_folder_state
             ],
             outputs=[
-                exceptions_status,
-                exceptions_open
+                exceptions_status
             ],
             api_name=False
         )
@@ -1691,6 +1707,7 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7861,
         share=True,
+        css=DASHBOARD_CSS,
         app_kwargs={"routes": create_document_routes(document_root())},
         allowed_paths=[
             os.path.join(
