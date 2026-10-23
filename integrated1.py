@@ -1323,67 +1323,6 @@ and generate insights from your files.
 """
         )
 
-        with gr.Tab("Documents"):
-            with gr.Row():
-                document_search = gr.Textbox(label="Search projects or documents", scale=4)
-                refresh_documents = gr.Button("Refresh", scale=1)
-            library_count = gr.Textbox(label="Library", interactive=False)
-            document_table = gr.Dataframe(
-                headers=["Project", "Document", "Created (UTC)", "Last updated (UTC)"],
-                datatype=["str", "str", "str", "str"],
-                interactive=False,
-                wrap=True,
-            )
-            selected_document = gr.Dropdown(label="Document", choices=[], interactive=True)
-            library_download = gr.File(label="Download Markdown", interactive=False)
-            library_preview = gr.Textbox(visible=False)
-            open_document_btn = gr.Button("Open Document in New Tab", variant="secondary")
-            export_html_btn = gr.Button("Export HTML Library", variant="secondary")
-            library_html_download = gr.File(label="Download HTML Library", interactive=False)
-
-        open_document_btn.click(
-            fn=None,
-            inputs=[library_preview],
-            outputs=[],
-            js="""(documentPath) => {
-                if (!documentPath) {
-                    window.alert("Select an available document first.");
-                    return [];
-                }
-                const base = new URL(window.location.href);
-                base.search = "";
-                base.hash = "";
-                if (!base.pathname.endsWith("/")) base.pathname += "/";
-                const url = new URL(documentPath, base);
-                window.open(url, "_blank", "noopener,noreferrer");
-                return [];
-            }""",
-            queue=False,
-            api_name=False,
-        )
-
-        export_html_btn.click(
-            fn=export_html_library,
-            inputs=[],
-            outputs=[library_html_download],
-            api_name=False,
-        )
-
-        library_inputs = [document_search, selected_document]
-        library_outputs = [
-            document_table, selected_document, library_preview,
-            library_download, library_count, library_html_download,
-        ]
-        demo.load(fn=list_documents, inputs=library_inputs, outputs=library_outputs, api_name=False)
-        refresh_documents.click(fn=list_documents, inputs=library_inputs, outputs=library_outputs, api_name=False)
-        document_search.change(fn=list_documents, inputs=library_inputs, outputs=library_outputs, api_name=False)
-        selected_document.change(
-            fn=preview_document,
-            inputs=[selected_document],
-            outputs=[library_preview, library_download],
-            api_name=False,
-        )
-
         # --------------------------------------------------
         # Project Name
         # --------------------------------------------------
@@ -1709,11 +1648,6 @@ and generate insights from your files.
                 document_open
             ],
             api_name=False
-        ).then(
-            fn=list_documents,
-            inputs=library_inputs,
-            outputs=library_outputs,
-            api_name=False
         )
 
         exceptions_btn.click(
@@ -1728,11 +1662,11 @@ and generate insights from your files.
                 exceptions_open
             ],
             api_name=False
-        ).then(
-            fn=list_documents,
-            inputs=library_inputs,
-            outputs=library_outputs,
-            api_name=False
+        )
+
+        gr.HTML(
+            '<p><a href="./documents" target="_blank" rel="noopener noreferrer">'
+            'View generated code documentation</a></p>'
         )
 
     return demo
