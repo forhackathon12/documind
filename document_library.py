@@ -20,8 +20,8 @@ PAGE = """<!doctype html>
 :root { color-scheme: light; --ink: #202622; --muted: #56615b; --line: #d8dfda; --accent: #176948; }
 * { box-sizing: border-box; }
 body { margin: 0; color: var(--ink); background: #fff; font: 16px Georgia, serif; }
-header { padding: 22px 28px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-header h1 { margin: 0; font-size: 26px; } header span { color: var(--muted); }
+header { padding: 22px 28px; background: #176948; color: #fff; border-bottom: 4px solid #66c2b1; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 26px; } header span { color: #d9f2e7; }
 main { display: grid; grid-template-columns: minmax(240px, 310px) minmax(0, 1fr); min-height: calc(100vh - 80px); }
 aside { padding: 20px; border-right: 1px solid var(--line); background: #f5f8f6; }
 label { display: block; margin-bottom: 8px; font-weight: bold; }
@@ -34,16 +34,17 @@ button:hover { background: #e7eee9; } button[aria-current="true"] { border-left-
 button small { display: block; color: var(--muted); margin-top: 6px; }
 .viewer { min-width: 0; padding: 28px 40px; }
 .document-bar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
-#title { font-size: 22px; margin: 0 0 10px; overflow-wrap: anywhere; }
+#title { font-size: 22px; margin: 0 0 10px; overflow-wrap: anywhere; color: #12523a; }
 #dates { margin: 0; font-size: 14px; color: var(--muted); white-space: pre-line; line-height: 1.7; }
-#download { color: var(--accent); padding: 10px 0; font-weight: bold; }
 [hidden] { display: none !important; }
 article { max-width: 1000px; line-height: 1.7; overflow-wrap: anywhere; }
-article h1 { font-size: 28px; } article h2 { font-size: 23px; } article h3 { font-size: 19px; }
+article h1 { font-size: 28px; color: #12523a; } article h2 { font-size: 23px; color: #146e82; border-bottom: 1px solid #c8ded3; padding-bottom: 8px; } article h3 { font-size: 19px; color: #176948; }
 article pre { overflow: auto; padding: 16px; background: #f2f4f3; border-radius: 4px; }
 article code { font-size: 14px; } article table { display: block; overflow: auto; border-collapse: collapse; }
 article th, article td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
-article blockquote { margin-left: 0; border-left: 3px solid var(--line); padding-left: 16px; color: var(--muted); }
+article th { background: #e7f1f5; color: #174c5b; }
+article tr:nth-child(even) td { background: #f5f8f6; }
+article blockquote { margin-left: 0; border-left: 3px solid #b66c25; padding: 8px 16px; color: #65461d; background: #fff7e8; }
 article a { color: var(--accent); }
 @media (max-width: 700px) {
   header { padding: 18px; } main { grid-template-columns: minmax(0, 1fr); }
@@ -62,8 +63,7 @@ article a { color: var(--accent); }
 <nav id="documents" aria-label="Documents"></nav>
 </aside>
 <section class="viewer" aria-label="Document preview">
-<div class="document-bar"><div><h2 id="title">No documents yet</h2><p id="dates"></p></div>
-<a id="download" hidden>Download Markdown</a></div>
+<div class="document-bar"><div><h2 id="title">No documents yet</h2><p id="dates"></p></div></div>
 <article id="preview"></article>
 </section>
 </main>
@@ -72,23 +72,11 @@ article a { color: var(--accent); }
 const documents = JSON.parse(document.getElementById('document-data').textContent);
 const search = document.getElementById('search');
 const navigation = document.getElementById('documents');
-const download = document.getElementById('download');
 let selected = documents.length ? documents[0].path : null;
-let downloadUrl = null;
 function showDocument(doc) {
-  if (downloadUrl) URL.revokeObjectURL(downloadUrl);
-  downloadUrl = null;
   document.getElementById('title').textContent = doc ? doc.title : 'No documents found';
   document.getElementById('dates').textContent = doc ? `${doc.project}\nCreated (UTC): ${doc.created}\nUpdated (UTC): ${doc.updated}` : '';
   document.getElementById('preview').innerHTML = doc ? doc.html : '';
-  download.hidden = !doc;
-  if (doc) {
-    downloadUrl = URL.createObjectURL(new Blob([doc.markdown], {type: 'text/markdown;charset=utf-8'}));
-    download.href = downloadUrl;
-    download.download = doc.filename;
-  } else {
-    download.removeAttribute('href');
-  }
 }
 function render() {
   const query = search.value.trim().toLocaleLowerCase();
@@ -110,7 +98,6 @@ function render() {
   showDocument(matches.find(doc => doc.path === selected));
 }
 search.addEventListener('input', render);
-window.addEventListener('pagehide', () => { if (downloadUrl) URL.revokeObjectURL(downloadUrl); });
 render();
 </script>
 </body>
@@ -129,7 +116,14 @@ def render_document_page(content, title):
     'main{max-width:1000px;margin:auto;padding:24px;line-height:1.7;overflow-wrap:anywhere;}'
     'pre{overflow:auto;padding:16px;background:#f2f4f3;}table{display:block;overflow:auto;'
     'border-collapse:collapse;}th,td{border:1px solid #d8dfda;padding:8px;text-align:left;}'
-    'a{color:#176948;}img{max-width:100%;}</style></head><body><main>'
+    'h1{color:#12523a;}h2{color:#146e82;border-bottom:1px solid #c8ded3;padding-bottom:8px;}'
+    'h3{color:#176948;}th{background:#e7f1f5;color:#174c5b;}'
+    'tr:nth-child(even) td{background:#f5f8f6;}'
+    'blockquote{margin-left:0;border-left:3px solid #b66c25;padding:8px 16px;'
+    'background:#fff7e8;color:#65461d;}a{color:#146e82;}'
+    'header{padding:18px 24px;background:#176948;color:#fff;border-bottom:4px solid #66c2b1;}'
+    'header a{color:#fff;text-underline-offset:4px;}img{max-width:100%;}'
+    '</style></head><body><header><strong>DocuMind Documents</strong></header><main>'
     f'{renderer.render(content)}</main></body></html>'
   )
 
