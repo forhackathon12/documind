@@ -316,6 +316,8 @@ def reset_project_workflow():
         "",
         None,
         gr.update(interactive=False),
+        "",
+        "",
         ""
     )
 
@@ -343,6 +345,8 @@ def reset_file_workflow():
         "",
         None,
         gr.update(interactive=False),
+        "",
+        "",
         ""
     )
 
@@ -768,9 +772,9 @@ def generate_markdown_document(
     filename
 ):
     if not project_folder:
-        return "Upload a project and process it before generating a draft.", None
+        return "Upload a project and process it before generating a draft.", None, ""
     if not model_name:
-        return "Select an AI model before generating a draft.", None
+        return "Select an AI model before generating a draft.", None, ""
 
     try:
         from retrieval_postgres import retrieve_from_postgres
@@ -789,7 +793,7 @@ def generate_markdown_document(
         )
 
         if not rag_result.get("sources"):
-            return rag_result.get("answer", "No indexed code chunks were found."), None
+            return rag_result.get("answer", "No indexed code chunks were found."), None, ""
 
         draft_path = save_markdown_draft(
             project_folder,
@@ -799,13 +803,17 @@ def generate_markdown_document(
             document_title,
             filename
         )
+        relative_path = Path(draft_path).resolve().relative_to(document_root()).as_posix()
+        document_url = "./documents/" + quote(relative_path, safe="/")
+        link_label = "Open Exceptions" if filename == "exceptions_draft.md" else "Open Document"
         return (
-            "Draft generated. Download the Markdown file below and publish it "
-            "to Confluence manually when ready.",
-            draft_path
+            "Draft generated. Open it in a new tab using the link below, or "
+            "download the Markdown file for manual Confluence publishing.",
+            draft_path,
+            f'<a href="{document_url}" target="_blank" rel="noopener noreferrer">{link_label}</a>'
         )
     except Exception as draft_exception:
-        return f"Draft generation failed: {str(draft_exception)}", None
+        return f"Draft generation failed: {str(draft_exception)}", None, ""
 
 
 def generate_project_document(model_name, project_folder):
@@ -1316,7 +1324,6 @@ and generate insights from your files.
         )
 
         with gr.Tab("Documents"):
-            gr.Markdown('<a href="documents" target="_blank" rel="noopener noreferrer">Open Documents</a>')
             with gr.Row():
                 document_search = gr.Textbox(label="Search projects or documents", scale=4)
                 refresh_documents = gr.Button("Refresh", scale=1)
@@ -1496,6 +1503,7 @@ and generate insights from your files.
                             label="Document status",
                             interactive=False
                         )
+                        document_open = gr.HTML(value="")
                         document_file = gr.File(
                             label="Download document",
                             interactive=False
@@ -1505,6 +1513,7 @@ and generate insights from your files.
                             label="Exceptions status",
                             interactive=False
                         )
+                        exceptions_open = gr.HTML(value="")
                         exceptions_file = gr.File(
                             label="Download exceptions document",
                             interactive=False
@@ -1586,7 +1595,9 @@ and generate insights from your files.
                 exceptions_status,
                 exceptions_file,
                 ask_btn,
-                query_answer_box
+                query_answer_box,
+                document_open,
+                exceptions_open
             ],
             api_name=False
         )
@@ -1611,7 +1622,9 @@ and generate insights from your files.
                 exceptions_status,
                 exceptions_file,
                 ask_btn,
-                query_answer_box
+                query_answer_box,
+                document_open,
+                exceptions_open
             ],
             api_name=False
         )
@@ -1692,7 +1705,8 @@ and generate insights from your files.
             ],
             outputs=[
                 document_status,
-                document_file
+                document_file,
+                document_open
             ],
             api_name=False
         ).then(
@@ -1710,7 +1724,8 @@ and generate insights from your files.
             ],
             outputs=[
                 exceptions_status,
-                exceptions_file
+                exceptions_file,
+                exceptions_open
             ],
             api_name=False
         ).then(
