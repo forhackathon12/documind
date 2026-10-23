@@ -3,6 +3,7 @@
 import argparse
 import json
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 
 from markdown_it import MarkdownIt
@@ -117,9 +118,24 @@ render();
 """
 
 
-def export_document_library(draft_root):
+def render_document_page(content, title):
+  renderer = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image")
+  return (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<meta name="referrer" content="no-referrer">'
+    f'<title>{escape(title)}</title>'
+    '<style>body{margin:0;color:#202622;background:#fff;font:16px Georgia,serif;}'
+    'main{max-width:1000px;margin:auto;padding:24px;line-height:1.7;overflow-wrap:anywhere;}'
+    'pre{overflow:auto;padding:16px;background:#f2f4f3;}table{display:block;overflow:auto;'
+    'border-collapse:collapse;}th,td{border:1px solid #d8dfda;padding:8px;text-align:left;}'
+    'a{color:#176948;}img{max-width:100%;}</style></head><body><main>'
+    f'{renderer.render(content)}</main></body></html>'
+  )
+
+
+def render_document_library(draft_root):
     root = Path(draft_root).resolve()
-    root.mkdir(parents=True, exist_ok=True)
     renderer = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image")
     documents = []
     for path in root.glob("*/*.md"):
@@ -149,9 +165,41 @@ def export_document_library(draft_root):
         })
     documents.sort(key=lambda document: (-document["modified"], document["path"]))
     payload = json.dumps(documents, ensure_ascii=True).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+    return PAGE.replace("__DOCUMENTS__", payload)
+
+
+def create_document_routes(draft_root):
+    from starlette.exceptions import HTTPException
+    from starlette.responses import HTMLResponse
+    from starlette.routing import Route
+
+    root = Path(draft_root).resolve()
+
+    def library_page(request):
+        return HTMLResponse(render_document_library(root), headers={"Cache-Control": "no-store"})
+
+    def document_page(request):
+        path = (root / request.path_params["document_path"]).resolve()
+        if not path.is_relative_to(root) or path.suffix.lower() != ".md" or not path.is_file():
+            raise HTTPException(status_code=404, detail="Document not found")
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            raise HTTPException(status_code=404, detail="Document unavailable") from None
+        return HTMLResponse(render_document_page(content, path.stem), headers={"Cache-Control": "no-store"})
+
+    return [
+        Route("/documents", library_page, methods=["GET"]),
+        Route("/documents/{document_path:path}", document_page, methods=["GET"]),
+    ]
+
+
+def export_document_library(draft_root):
+    root = Path(draft_root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
     output = root / "index.html"
     temporary = root / "index.html.tmp"
-    temporary.write_text(PAGE.replace("__DOCUMENTS__", payload), encoding="utf-8")
+    temporary.write_text(render_document_library(root), encoding="utf-8")
     temporary.replace(output)
     return str(output)
 
