@@ -1,5 +1,6 @@
 """Start DocuMind with: python integrated1.py."""
 
+import faulthandler
 import os
 
 from config import BASE_UPLOAD_FOLDER
@@ -8,6 +9,8 @@ from ui import DASHBOARD_CSS, build_ui
 
 
 if __name__ == "__main__":
+    # Print Python thread stacks if a native extension crashes the server.
+    faulthandler.enable(all_threads=True)
     from document_library import create_document_routes
 
     demo = build_ui()
