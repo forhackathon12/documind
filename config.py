@@ -16,3 +16,12 @@ DB_CONFIG = {
     "user": os.environ.get("PGUSER", "vadmin"),
     "password": os.environ.get("PGPASSWORD", "documind@123"),
 }
+
+# Azure OpenAI / Azure AI Foundry configuration
+AZURE_OPENAI_CONFIG = {
+    "api_key": os.environ.get("AZURE_OPENAI_API_KEY", ""),
+    "endpoint": os.environ.get("AZURE_OPENAI_ENDPOINT", ""),
+    "deployment_name": os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
+    "api_version": os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+}
+

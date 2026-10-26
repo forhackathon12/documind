@@ -43,7 +43,7 @@ import ollama
 import psycopg2
 from pgvector.psycopg2 import register_vector
 
-from config import DB_CONFIG
+from config import DB_CONFIG, AZURE_OPENAI_CONFIG
 
 # Import database configuration directly from friend's ingestion pipeline
 try:
@@ -379,6 +379,74 @@ def build_anti_hallucination_prompt(
     return system_msg, user_msg
 
 
+def generate_azure_openai_answer(
+    system_msg: str,
+    user_msg: str,
+    temperature: float = 0.1,
+) -> str:
+    """
+    Invoke Azure OpenAI / Azure AI Foundry model using the configured API key and endpoint.
+    """
+    api_key = AZURE_OPENAI_CONFIG.get("api_key", "").strip()
+    endpoint = AZURE_OPENAI_CONFIG.get("endpoint", "").strip().rstrip("/")
+    deployment = AZURE_OPENAI_CONFIG.get("deployment_name", "gpt-4o").strip()
+    api_version = AZURE_OPENAI_CONFIG.get("api_version", "2024-02-15-preview").strip()
+
+    if not api_key:
+        return (
+            "❌ LLM Generation Error: Azure OpenAI API key is missing. "
+            "Please configure 'api_key' in AZURE_OPENAI_CONFIG in config.py or set AZURE_OPENAI_API_KEY."
+        )
+
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": user_msg},
+    ]
+
+    # Try official openai SDK if installed
+    try:
+        from openai import AzureOpenAI
+        client = AzureOpenAI(
+            api_key=api_key,
+            api_version=api_version,
+            azure_endpoint=endpoint,
+        )
+        response = client.chat.completions.create(
+            model=deployment,
+            messages=messages,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content
+    except ImportError:
+        pass
+    except Exception as e:
+        return f"❌ LLM Generation Error (Azure OpenAI): {e}"
+
+    # Fallback to direct HTTP request using requests
+    try:
+        import requests
+        if "/chat/completions" in endpoint:
+            url = endpoint
+        else:
+            url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": api_key,
+            "Authorization": f"Bearer {api_key}",
+        }
+        payload = {
+            "messages": messages,
+            "temperature": temperature,
+        }
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"❌ LLM Generation Error (Azure OpenAI REST API): {e}"
+
+
 def generate_llm_answer(
     system_msg: str,
     user_msg: str,
@@ -386,8 +454,11 @@ def generate_llm_answer(
     temperature: float = 0.1,
 ) -> str:
     """
-    Invoke local Ollama LLM to synthesize the response using chat roles.
+    Invoke local Ollama LLM or Azure OpenAI to synthesize the response using chat roles.
     """
+    if "azure" in model_name.lower() or "openai" in model_name.lower():
+        return generate_azure_openai_answer(system_msg, user_msg, temperature)
+
     options = {"temperature": temperature, "num_predict": 1500}
     for attempt in range(2):
         try:
@@ -540,6 +611,10 @@ def run_postgres(
 
 def map_ollama_model(selected_name: str) -> str:
     """Map UI model selection to an available local Ollama LLM."""
+    if not selected_name:
+        return "qwen2.5:0.5b"
+    if "azure" in selected_name.lower() or "openai" in selected_name.lower():
+        return selected_name
     try:
         res = ollama.list()
         pulled = []

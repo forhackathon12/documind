@@ -323,7 +323,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     choices=[
                         "Qwen2.5-Coder-7B-Instruct",
                         "Phi-3.5-min-instruct",
-                        "Deepseek-Coder-6.7BInstruct"
+                        "Deepseek-Coder-6.7BInstruct",
+                        "Azure-OpenAI-GPT-4o",
                     ],
                     label="Select Model",
                     value=None,
@@ -394,7 +395,8 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                     choices=[
                         "Qwen2.5-Coder-7B-Instruct",
                         "Phi-3.5-min-instruct",
-                        "Deepseek-Coder-6.7BInstruct"
+                        "Deepseek-Coder-6.7BInstruct",
+                        "Azure-OpenAI-GPT-4o",
                     ],
                     value="Qwen2.5-Coder-7B-Instruct",
                     label="Ask DocuMind Model",
@@ -687,9 +689,10 @@ Direct retrieval from `documind_nprd.chunk_details` populated by `ingestionpipel
                         "qwen2.5-coder:7b",
                         "phi3:mini",
                         "mistral:7b",
+                        "Azure-OpenAI-GPT-4o",
                     ],
                     value="qwen2.5:0.5b",
-                    label="Local LLM (Ollama)",
+                    label="LLM Model (Local Ollama / Azure OpenAI)",
                 )
 
                 with gr.Accordion("🛠️ Database Settings (from ingestionpipeline.py)", open=False):
