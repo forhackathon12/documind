@@ -336,13 +336,15 @@ def build_anti_hallucination_prompt(
             "CRITICAL CONFLUENCE GUIDELINES:\n"
             "1. NEVER copy-paste or dump raw Python code blocks into the document. Explain architecture, component logic, data flows, inputs, and outputs in clear technical prose and markdown tables.\n"
             "2. Structure the document following industry-standard Confluence Architecture templates:\n"
-            "   - **Document Control & Metadata**: Status (APPROVED), Architect, Target Stack\n"
+            "   - **Document Control & Metadata**: Status (Draft), Architect (DocuMind), Target Stack\n"
             "   - **1. Executive Summary & Purpose**: Business context and technical goals\n"
             "   - **2. End-to-End Architecture & Workflow**: Numbered sequential data flow\n"
             "   - **3. Component Interface Table**: Markdown table with Component, Role, Inputs, Outputs\n"
             "   - **4. Architectural Decisions (ADRs)**: Key trade-offs (e.g. pgvector, local SLM inference)\n"
             "   - **5. Resilience & Operational View**: Error handling, fallbacks, and recovery\n"
-            "3. Ensure the document is complete, highly professional, and concise."
+            "3. Ensure the document is complete, highly professional, and concise.\n"
+            "4. Set the Architect field to exactly DocuMind, identifying the documentation generator rather than a human architect. Never invent personal architect, author, owner, reviewer, or approver names. Do not use placeholder names or infer project roles from code authorship. For other roles not explicitly identified in the supplied context, write Not Available.\n"
+            "5. Keep the document status as Draft. Do not claim approval, review, or sign-off."
         )
         task_instruction = (
             f"TASK:\n{query}\n\n"
