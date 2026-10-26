@@ -558,16 +558,33 @@ def map_ollama_model(selected_name: str) -> str:
     return "qwen2.5:0.5b"
 
 
-def on_ask_code(user_q, chosen_model, active_project_folder):
-    """Answer a dashboard question using retrieved code from the active project."""
+def on_ask_code(user_q, chosen_model, active_project_folder=None):
+    """Answer using an explicit Project header or the uploaded project's indexed code."""
     if not user_q or not user_q.strip():
         return "⚠️ Please enter a question or query."
-    if not active_project_folder:
-        return "⚠️ Upload and process a project before asking questions."
+    if not chosen_model:
+        return "Please select an Ask DocuMind model."
+
+    q_clean = user_q.strip()
+    lines = q_clean.splitlines()
+    header, separator, project = lines[0].partition(":")
+    # Explicit scope overrides session state and is not included in query embeddings.
+    if separator and header.strip().casefold() == "project":
+        project = project.strip()
+        q_clean = "\n".join(lines[1:]).strip()
+    elif active_project_folder:
+        project = os.path.basename(os.path.normpath(active_project_folder))
+    else:
+        return "Specify an indexed project on the first line, for example: Project: sample"
+
+    if not project or project in {".", ".."} or "/" in project or "\\" in project:
+        return "Enter a valid project name after Project:, not a folder path."
+    if not q_clean:
+        return "Enter your question on the line after Project: <project-name>."
+
     try:
         from retrieval_postgres import retrieve_from_postgres
         target_llm = map_ollama_model(chosen_model)
-        q_clean = user_q.strip()
         is_doc = any(w in q_clean.lower() for w in ["confluence", "architect", "overview", "document", "high level", "summary", "summarize"])
         res = retrieve_from_postgres(
             query=q_clean,
@@ -576,9 +593,7 @@ def on_ask_code(user_q, chosen_model, active_project_folder):
             top_k=7 if is_doc else 5,
             llm_model=target_llm,
             prompt_type="standard" if is_doc else "qa",
-            project_filter=os.path.basename(
-                os.path.normpath(active_project_folder)
-            ),
+            project_filter=project,
         )
         return res["answer"]
     except Exception as e:
