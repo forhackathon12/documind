@@ -388,21 +388,37 @@ def generate_llm_answer(
     """
     Invoke local Ollama LLM to synthesize the response using chat roles.
     """
-    try:
-        response = ollama.chat(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg},
-            ],
-            options={"temperature": temperature, "num_predict": 1500},
-        )
-        return response["message"]["content"]
-    except Exception as e:
-        return (
-            f"❌ LLM Generation Error: {e}\n\n"
-            f"Make sure Ollama is running and `{model_name}` is downloaded (`ollama pull {model_name}`)."
-        )
+    options = {"temperature": temperature, "num_predict": 1500}
+    for attempt in range(2):
+        try:
+            response = ollama.chat(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg},
+                ],
+                options=options,
+            )
+            return response["message"]["content"]
+        except Exception as e:
+            if "token repeat limit reached" in str(e).lower():
+                if attempt == 0:
+                    # Retry repetition failures once with a shorter output and stronger repeat penalty.
+                    options = {
+                        "temperature": max(temperature, 0.2),
+                        "num_predict": 750,
+                        "repeat_penalty": 1.15,
+                    }
+                    continue
+                return (
+                    f"❌ LLM Generation Error: `{model_name}` reached Ollama's token repetition limit "
+                    "on both attempts. Try another installed chat model or a more focused request. "
+                    "This generation failure does not undo indexed chunks; re-indexing is not required."
+                )
+            return (
+                f"❌ LLM Generation Error: {e}\n\n"
+                f"Check the Ollama service and that `{model_name}` is installed."
+            )
 
 
 
