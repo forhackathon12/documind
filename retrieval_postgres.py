@@ -43,6 +43,8 @@ import ollama
 import psycopg2
 from pgvector.psycopg2 import register_vector
 
+from config import DB_CONFIG
+
 # Import database configuration directly from friend's ingestion pipeline
 try:
     from ingestionpipeline import DB_CONFIG as INGESTION_DB_CONFIG
@@ -158,6 +160,7 @@ def _build_chunk_scope_filter(
     file_filter: Optional[str],
     project_filter: Optional[str],
 ) -> tuple:
+    """Build parameterized filename and project-prefix conditions for chunk searches."""
     clauses = []
     params = []
 
@@ -513,157 +516,56 @@ def run_postgres(
 
 # ── Gradio Web UI ─────────────────────────────────────────────────────────────
 
-def build_retrieval_ui():
-    """Build and return the Gradio UI for the retrieval pipeline."""
-    import gradio as gr
-
-    def on_retrieve(
-        query,
-        prompt_type,
-        custom_instructions,
-        top_k,
-        llm_model,
-        db_host,
-        db_name,
-        db_user,
-        db_pass,
-        table_name,
-    ):
-        if not query.strip():
-            return "⚠️ Please enter a query or question to retrieve.", ""
-
-        custom_cfg = {
-            "host": db_host.strip() or INGESTION_DB_CONFIG["host"],
-            "database": db_name.strip() or INGESTION_DB_CONFIG["database"],
-            "user": db_user.strip() or INGESTION_DB_CONFIG["user"],
-            "password": db_pass.strip() or INGESTION_DB_CONFIG["password"],
-        }
-
-        try:
-            result = retrieve_from_postgres(
-                query=query.strip(),
-                db_config=custom_cfg,
-                table_name=table_name.strip() or DEFAULT_TABLE,
-                top_k=int(top_k),
-                llm_model=llm_model,
-                prompt_type=prompt_type,
-                custom_instructions=custom_instructions or "",
-            )
-        except Exception as e:
-            return f"❌ Retrieval Error: {e}", ""
-
-        # Format sources into clean markdown
-        sources_md = [f"### 📚 Retrieved Sources ({result['num_sources']} chunks from `{result['table']}`)\n"]
-        for s in result["sources"]:
-            sources_md.append(
-                f"#### Chunk #{s['chunk_number']} — `{s['file_name']}`\n"
-                f"* **Type**: `{s['chunk_type']}` | **Name**: `{s['chunk_name']}` | **Lines**: {s['chunk_start_line']}–{s['chunk_end_line']} | **Similarity**: `{s['similarity']}`\n"
-                f"```python\n{s['chunk_content']}\n```\n"
-            )
-
-        return result["answer"], "\n".join(sources_md)
-
-    with gr.Blocks(
-        title="DocuMind – PostgreSQL Retrieval",
-        theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="slate"),
-    ) as demo:
-        gr.Markdown(
-            """
-# 🔍 DocuMind &nbsp;·&nbsp; PostgreSQL Retrieval Pipeline
-Direct retrieval from `documind_nprd.chunk_details` populated by `ingestionpipeline.py`.
-**Zero Ingestion &bull; 100% Local via Ollama**
-"""
-        )
-
-        with gr.Row(equal_height=False):
-            with gr.Column(scale=1, min_width=350):
-                gr.Markdown("### 📝 1. Query & Prompt")
-                query_input = gr.Textbox(
-                    label="Search Query / Question",
-                    placeholder="e.g. Explain how Tree-sitter chunking is implemented",
-                    lines=3,
-                )
-                prompt_type = gr.Radio(
-                    choices=["standard", "exceptions", "qa", "custom"],
-                    value="standard",
-                    label="Output Mode",
-                    info="standard → Confluence doc · exceptions → error report · qa → direct answer · custom → your prompt",
-                )
-                custom_p = gr.Textbox(
-                    label="Custom Prompt Instructions",
-                    placeholder="e.g. Provide a bulleted list of all functions with return types…",
-                    lines=3,
-                    visible=False,
-                )
-
-                gr.Markdown("---")
-                gr.Markdown("### ⚙️ 2. Retrieval & Model")
-                top_k = gr.Slider(
-                    minimum=1,
-                    maximum=15,
-                    value=5,
-                    step=1,
-                    label="Top-K Chunks to Retrieve",
-                )
-                llm_model = gr.Dropdown(
-                    choices=[
-                        "qwen2.5:0.5b",
-                        "qwen2.5-coder:3b",
-                        "qwen2.5-coder:7b",
-                        "phi3:mini",
-                        "mistral:7b",
-                    ],
-                    value="qwen2.5:0.5b",
-                    label="Local LLM (Ollama)",
-                )
-
-                with gr.Accordion("🛠️ Database Settings (from ingestionpipeline.py)", open=False):
-                    db_host = gr.Textbox(label="Host", value=INGESTION_DB_CONFIG.get("host", "localhost"))
-                    db_name = gr.Textbox(label="Database", value=INGESTION_DB_CONFIG.get("database", "documind_dev"))
-                    db_user = gr.Textbox(label="User", value=INGESTION_DB_CONFIG.get("user", "vadmin"))
-                    db_pass = gr.Textbox(label="Password", value=INGESTION_DB_CONFIG.get("password", "documind@123"), type="password")
-                    table_name = gr.Textbox(label="Table", value=DEFAULT_TABLE)
-
-                run_btn = gr.Button("🚀 Retrieve & Generate", variant="primary", size="lg")
-
-            with gr.Column(scale=2):
-                gr.Markdown("### 📄 LLM Answer")
-                answer_out = gr.Markdown(
-                    value="_Output will appear here after clicking **Retrieve & Generate**._"
-                )
-                with gr.Accordion("📚 Retrieved Code Chunks & Sources", open=True):
-                    sources_out = gr.Markdown(
-                        value="_Retrieved chunks with file locations and similarity scores will appear here._"
-                    )
-
-        prompt_type.change(
-            fn=lambda p: gr.update(visible=(p == "custom")),
-            inputs=prompt_type,
-            outputs=custom_p,
-        )
-
-        run_btn.click(
-            fn=on_retrieve,
-            inputs=[
-                query_input,
-                prompt_type,
-                custom_p,
-                top_k,
-                llm_model,
-                db_host,
-                db_name,
-                db_user,
-                db_pass,
-                table_name,
-            ],
-            outputs=[answer_out, sources_out],
-            api_name=False,
-        )
-
-    return demo
 
 
 # ── Entry Point (UI or CLI) ───────────────────────────────────────────────────
+
+def map_ollama_model(selected_name: str) -> str:
+    """Map UI model selection to an available local Ollama LLM."""
+    try:
+        res = ollama.list()
+        pulled = []
+        for m in getattr(res, "models", []):
+            name = getattr(m, "model", "")
+            if "embed" not in name.lower():
+                pulled.append(name)
+        for p in pulled:
+            prefix = selected_name.lower().split("-")[0]
+            if prefix in p.lower():
+                return p
+        if pulled:
+            return pulled[0]
+    except Exception:
+        pass
+    return "qwen2.5:0.5b"
+
+
+def on_ask_code(user_q, chosen_model, active_project_folder):
+    """Answer a dashboard question using retrieved code from the active project."""
+    if not user_q or not user_q.strip():
+        return "⚠️ Please enter a question or query."
+    if not active_project_folder:
+        return "⚠️ Upload and process a project before asking questions."
+    try:
+        from retrieval_postgres import retrieve_from_postgres
+        target_llm = map_ollama_model(chosen_model)
+        q_clean = user_q.strip()
+        is_doc = any(w in q_clean.lower() for w in ["confluence", "architect", "overview", "document", "high level", "summary", "summarize"])
+        res = retrieve_from_postgres(
+            query=q_clean,
+            db_config=DB_CONFIG,
+            table_name="documind_nprd.chunk_details",
+            top_k=7 if is_doc else 5,
+            llm_model=target_llm,
+            prompt_type="standard" if is_doc else "qa",
+            project_filter=os.path.basename(
+                os.path.normpath(active_project_folder)
+            ),
+        )
+        return res["answer"]
+    except Exception as e:
+        return f"❌ Query error: {str(e)}"
+
 
 if __name__ == "__main__":
     import sys
@@ -713,6 +615,8 @@ if __name__ == "__main__":
     else:
         # Launch Gradio Web UI on port 7862
         print("🚀 Starting Retrieval Web Dashboard on port 7862…")
+        from ui import build_retrieval_ui
+
         ui = build_retrieval_ui()
         ui.launch(
             server_name="0.0.0.0",
