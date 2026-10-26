@@ -231,23 +231,33 @@ def process_upload(files, project_name):
     )
 
 
+
 def tree_sitter_chunk(code):
-    """Extract Python function and class chunks with names and source locations."""
+    """
+    Extract Python function and class chunks with names and source locations.
+
+    Uses iterative Tree-sitter traversal to avoid Python recursion depth
+    issues. Preserves the existing chunk dictionary structure.
+    """
     chunks = []
 
     try:
-        source_bytes = code.encode(
-            "utf-8"
-        )
+        # Validate input
+        if not isinstance(code, str):
+            raise TypeError(
+                f"Expected code as str, got {type(code).__name__}"
+            )
 
-        parser = Parser(
-            PY_LANGUAGE
-        )
+        if not code.strip():
+            return chunks
 
-        tree = parser.parse(
-            source_bytes
-        )
+        source_bytes = code.encode("utf-8")
 
+        # Initialize parser
+        parser = Parser(PY_LANGUAGE)
+
+        # Parse source code
+        tree = parser.parse(source_bytes)
         root_node = tree.root_node
 
         print(
@@ -255,17 +265,34 @@ def tree_sitter_chunk(code):
             root_node.type,
             flush=True
         )
-
         print(
             "Tree-sitter syntax error:",
             root_node.has_error,
             flush=True
         )
+        print(
+            f"Tree-sitter input size: {len(source_bytes)} bytes",
+            flush=True
+        )
 
-        def traverse_node(node):
-            """Visit syntax nodes recursively and collect function or class definitions."""
-            # Capture functions and classes
-            # at any nesting level
+        # Iterative traversal avoids recursive Python function calls.
+        print("Tree-sitter traversal starting", flush=True)
+
+        stack = [root_node]
+        visited = 0
+
+        while stack:
+            node = stack.pop()
+            visited += 1
+
+            # Guard against pathological input or an unexpectedly
+            # large syntax tree.
+            if visited > 1_000_000:
+                raise RuntimeError(
+                    "Tree-sitter traversal exceeded 1,000,000 nodes"
+                )
+
+            # Capture functions and classes at any nesting level.
             if node.type in (
                 "function_definition",
                 "class_definition"
@@ -277,74 +304,70 @@ def tree_sitter_chunk(code):
                     errors="replace"
                 )
 
-                name_node = node.child_by_field_name(
-                    "name"
-                )
+                name_node = node.child_by_field_name("name")
 
                 chunk_name = (
                     source_bytes[
-                        name_node.start_byte:
-                        name_node.end_byte
+                        name_node.start_byte:name_node.end_byte
                     ].decode(
                         "utf-8",
                         errors="replace"
                     )
-                    if name_node
+                    if name_node is not None
                     else "Unknown"
                 )
 
-                chunks.append(
-                    {
-                        "type": node.type,
-                        "name": chunk_name,
-                        "start_line": (
-                            node.start_point.row + 1
-                        ),
-                        "end_line": (
-                            node.end_point.row + 1
-                        ),
-                        "content": chunk_content
-                    }
-                )
+                chunks.append({
+                    "type": node.type,
+                    "name": chunk_name,
+                    "start_line": node.start_point.row + 1,
+                    "end_line": node.end_point.row + 1,
+                    "content": chunk_content
+                })
 
-            # Recursively check named child nodes
-            for child in node.named_children:
-                traverse_node(child)
+            # Add named children in reverse order so they are
+            # processed in their original source order.
+            children = node.named_children
+            stack.extend(reversed(children))
 
-        # Flush stage markers so a native crash can be localized in server logs.
-        print("Tree-sitter traversal starting", flush=True)
-        traverse_node(
-            root_node
+        print(
+            f"Tree-sitter traversal completed: "
+            f"{len(chunks)} definition chunks; "
+            f"{visited} nodes visited",
+            flush=True
         )
-        print(f"Tree-sitter traversal completed: {len(chunks)} definition chunks", flush=True)
 
-        # Fallback for Python files with no
-        # functions or classes
-        if not chunks and code.strip():
-            chunks.append(
-                {
-                    "type": "module",
-                    "name": "module_level_code",
-                    "start_line": 1,
-                    "end_line": len(
-                        code.splitlines()
-                    ),
-                    "content": code
-                }
-            )
+        # Fallback for source files with no function/class definitions.
+        if not chunks:
+            chunks.append({
+                "type": "module",
+                "name": "module_level_code",
+                "start_line": 1,
+                "end_line": len(code.splitlines()),
+                "content": code
+            })
 
         return chunks
 
     except Exception as e:
-        return [
-            {
-                "type": "ERROR",
-                "name": "TreeSitterParseError",
-                "start_line": 0,
-                "end_line": 0,
-                "content": str(e)
-            }
-        ]
+        # Log the full error on the server for debugging.
+        import traceback
+
+        print(
+            f"Tree-sitter chunking failed: {e}",
+            flush=True
+        )
+        traceback.print_exc()
+
+        # Preserve the existing error-result structure.
+        return [{
+            "type": "ERROR",
+            "name": "TreeSitterParseError",
+            "start_line": 0,
+            "end_line": 0,
+            "content": str(e)
+        }]
+
 
 
 def generate_chunk_embedding(chunk_content):
