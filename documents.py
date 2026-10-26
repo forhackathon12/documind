@@ -199,6 +199,10 @@ def generate_markdown_document(
             ),
         )
 
+        # Model failures can include retrieved sources but must not become saved drafts.
+        if "LLM Generation Error:" in rag_result.get("answer", ""):
+            return escape(rag_result["answer"])
+
         if not rag_result.get("sources"):
             return escape(rag_result.get("answer", "No indexed code chunks were found."))
 
