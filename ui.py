@@ -167,12 +167,10 @@ def update_generate_button(
         return (
             gr.update(interactive=True),
             gr.update(interactive=bool(project_indexed)),
-            gr.update(interactive=bool(project_indexed)),
             gr.update(interactive=bool(project_indexed))
         )
 
     return (
-        gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False),
         gr.update(interactive=False)
@@ -197,7 +195,6 @@ def reset_project_workflow():
         "",
         gr.update(interactive=False),
         "",
-        gr.update(interactive=False),
         ""
     )
 
@@ -220,7 +217,6 @@ def reset_file_workflow():
         "",
         gr.update(interactive=False),
         "",
-        gr.update(interactive=False),
         ""
     )
 
@@ -393,11 +389,23 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             with gr.Column(scale=2):
                 gr.Markdown("---")
                 gr.Markdown("### Ask DocuMind")
+                # Query-model selection is independent of upload and indexing controls.
+                ask_model_selector = gr.Dropdown(
+                    choices=[
+                        "Qwen2.5-Coder-7B-Instruct",
+                        "Phi-3.5-min-instruct",
+                        "Deepseek-Coder-6.7BInstruct"
+                    ],
+                    value="Qwen2.5-Coder-7B-Instruct",
+                    label="Ask DocuMind Model",
+                    interactive=True,
+                    elem_classes=["dm-field", "dm-field-blue"],
+                )
                 with gr.Row():
                     query_input = gr.Textbox(
                         label="Question or Prompt",
-                        placeholder="e.g. Explain how database connection works, or list all classes and exceptions",
-                        lines=2,
+                        placeholder="Project: sample\nExplain how exceptions are handled.",
+                        lines=3,
                         scale=4,
                         elem_classes=["dm-field", "dm-field-blue"],
                     )
@@ -405,7 +413,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                         "Ask DocuMind",
                         variant="secondary",
                         scale=1,
-                        interactive=False,
+                        interactive=True,
                         elem_classes=["dm-action", "dm-teal"]
                     )
 
@@ -419,7 +427,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
 
         ask_btn.click(
             fn=on_ask_code,
-            inputs=[query_input, model_selector, project_folder_state],
+            inputs=[query_input, ask_model_selector, project_folder_state],
             outputs=[query_answer_box],
             api_name=False,
         )
@@ -441,7 +449,6 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 document_status,
                 exceptions_btn,
                 exceptions_status,
-                ask_btn,
                 query_answer_box
             ],
             api_name=False
@@ -464,7 +471,6 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                 document_status,
                 exceptions_btn,
                 exceptions_status,
-                ask_btn,
                 query_answer_box
             ],
             api_name=False
@@ -500,8 +506,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 process_btn,
                 document_btn,
-                exceptions_btn,
-                ask_btn
+                exceptions_btn
             ],
             api_name=False
         )
@@ -516,8 +521,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
             outputs=[
                 process_btn,
                 document_btn,
-                exceptions_btn,
-                ask_btn
+                exceptions_btn
             ],
             api_name=False
         )
