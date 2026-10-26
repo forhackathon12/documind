@@ -199,7 +199,7 @@ def generate_markdown_document(
             ),
         )
 
-        # Model failures can include retrieved sources but must not become saved drafts.
+        # Retrieved sources do not make a failed model response a valid draft.
         if "LLM Generation Error:" in rag_result.get("answer", ""):
             return escape(rag_result["answer"])
 
