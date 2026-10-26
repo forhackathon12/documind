@@ -374,7 +374,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             elem_classes=["dm-action", "dm-green"]
                         )
                         document_status = gr.Markdown(
-                            value="Document status: Ready after project indexing.",
+                            value="Your code documentation will appear here.",
                             elem_classes=["dm-generation-status"]
                         )
                     with gr.Column():
@@ -385,7 +385,7 @@ Want to go to documents? <a href="./documents" target="_blank" rel="noopener nor
                             elem_classes=["dm-action", "dm-amber"]
                         )
                         exceptions_status = gr.Markdown(
-                            value="Exceptions status: Ready after project indexing.",
+                            value="Your exception-handling report will appear here.",
                             elem_classes=["dm-generation-status", "dm-exceptions-status"]
                         )
         
