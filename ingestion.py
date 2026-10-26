@@ -252,12 +252,14 @@ def tree_sitter_chunk(code):
 
         print(
             "Tree-sitter root node:",
-            root_node.type
+            root_node.type,
+            flush=True
         )
 
         print(
             "Tree-sitter syntax error:",
-            root_node.has_error
+            root_node.has_error,
+            flush=True
         )
 
         def traverse_node(node):
@@ -309,9 +311,12 @@ def tree_sitter_chunk(code):
             for child in node.named_children:
                 traverse_node(child)
 
+        # Flush stage markers so a native crash can be localized in server logs.
+        print("Tree-sitter traversal starting", flush=True)
         traverse_node(
             root_node
         )
+        print(f"Tree-sitter traversal completed: {len(chunks)} definition chunks", flush=True)
 
         # Fallback for Python files with no
         # functions or classes
@@ -344,6 +349,7 @@ def tree_sitter_chunk(code):
 
 def generate_chunk_embedding(chunk_content):
     """Ask Ollama to represent one code chunk as a float32 search vector."""
+    print(f"Embedding request starting: {len(chunk_content)} characters", flush=True)
     response = ollama.embed(
         model="mxbai-embed-large",
         input=chunk_content
@@ -358,6 +364,7 @@ def generate_chunk_embedding(chunk_content):
     else:
         embedding = response["embeddings"][0]
 
+    print(f"Embedding response received: {len(embedding)} dimensions", flush=True)
     # Convert to NumPy array for pgvector
     return np.array(
         embedding,
