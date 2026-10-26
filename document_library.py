@@ -73,11 +73,13 @@ const documents = JSON.parse(document.getElementById('document-data').textConten
 const search = document.getElementById('search');
 const navigation = document.getElementById('documents');
 let selected = documents.length ? documents[0].path : null;
+// Display the selected document's title, timestamps, and rendered content.
 function showDocument(doc) {
   document.getElementById('title').textContent = doc ? doc.title : 'No documents found';
   document.getElementById('dates').textContent = doc ? `${doc.project}\nCreated (UTC): ${doc.created}\nUpdated (UTC): ${doc.updated}` : '';
   document.getElementById('preview').innerHTML = doc ? doc.html : '';
 }
+// Rebuild the filtered document list and display the current selection.
 function render() {
   const query = search.value.trim().toLocaleLowerCase();
   const matches = documents.filter(doc => `${doc.project} ${doc.title} ${doc.filename}`.toLocaleLowerCase().includes(query));
@@ -106,8 +108,9 @@ render();
 
 
 def render_document_page(content, title):
-  renderer = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image")
-  return (
+    """Render one Markdown draft as a standalone styled HTML document."""
+    renderer = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image")
+    return (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1">'
     '<meta name="referrer" content="no-referrer">'
@@ -125,10 +128,11 @@ def render_document_page(content, title):
     'header a{color:#fff;text-underline-offset:4px;}img{max-width:100%;}'
     '</style></head><body><header><strong>DocuMind Documents</strong></header><main>'
     f'{renderer.render(content)}</main></body></html>'
-  )
+        )
 
 
 def render_document_library(draft_root):
+    """Build a searchable HTML library from the saved project drafts."""
     root = Path(draft_root).resolve()
     renderer = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image")
     documents = []
@@ -163,6 +167,7 @@ def render_document_library(draft_root):
 
 
 def create_document_routes(draft_root):
+    """Create HTTP routes for the document library and individual saved drafts."""
     from starlette.exceptions import HTTPException
     from starlette.responses import HTMLResponse
     from starlette.routing import Route
@@ -170,9 +175,11 @@ def create_document_routes(draft_root):
     root = Path(draft_root).resolve()
 
     def library_page(request):
+        """Serve a fresh library page without browser caching."""
         return HTMLResponse(render_document_library(root), headers={"Cache-Control": "no-store"})
 
     def document_page(request):
+        """Validate the requested draft path and serve its rendered HTML page."""
         path = (root / request.path_params["document_path"]).resolve()
         if not path.is_relative_to(root) or path.suffix.lower() != ".md" or not path.is_file():
             raise HTTPException(status_code=404, detail="Document not found")
@@ -189,6 +196,7 @@ def create_document_routes(draft_root):
 
 
 def export_document_library(draft_root):
+    """Write the offline library HTML using temporary-file replacement."""
     root = Path(draft_root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     output = root / "index.html"
