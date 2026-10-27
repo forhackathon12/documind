@@ -322,9 +322,7 @@ Navigate to Document History? <a href="./documents" target="_blank" rel="noopene
                 model_selector = gr.Radio(
                     choices=[
                         "Qwen2.5-Coder-7B-Instruct",
-                        "Phi-3.5-min-instruct",
                         "Deepseek-Coder-6.7BInstruct",
-                        "Azure-OpenAI-GPT-4o",
                     ],
                     label="Select Model",
                     value=None,
@@ -394,9 +392,7 @@ Navigate to Document History? <a href="./documents" target="_blank" rel="noopene
                 ask_model_selector = gr.Dropdown(
                     choices=[
                         "Qwen2.5-Coder-7B-Instruct",
-                        "Phi-3.5-min-instruct",
                         "Deepseek-Coder-6.7BInstruct",
-                        "Azure-OpenAI-GPT-4o",
                     ],
                     value="Qwen2.5-Coder-7B-Instruct",
                     label="Ask DocuMind Model",
