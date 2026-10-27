@@ -247,7 +247,7 @@ Enter the project name, upload your documents, select an AI model,
 and generate insights from your files.
 </p>
 <p style="text-align: center;">
-Want to go to documents? <a href="./documents" target="_blank" rel="noopener noreferrer">Click here</a>.
+Navigate to Document History? <a href="./documents" target="_blank" rel="noopener noreferrer">Click here</a>.
 </p>
 """,
         elem_id="documind-header"
